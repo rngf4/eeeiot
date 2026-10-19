@@ -1,0 +1,48 @@
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    restart: unless-stopped
+    command:
+      - /bin/sh
+      - -c
+      - |
+        printf '%s\n' \
+          'listener 1883' \
+          'allow_anonymous true' \
+          'persistence true' \
+          'persistence_location /mosquitto/data/' \
+          'log_dest stdout' \
+          > /tmp/mosquitto.conf
+        exec mosquitto -c /tmp/mosquitto.conf
+    ports:
+      - "${MQTT_PORT:-1883}:1883"
+    volumes:
+      - mosquitto_data:/mosquitto/data
+    healthcheck:
+      test: ["CMD", "mosquitto_pub", "-h", "localhost", "-t", "healthcheck", "-m", "ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB:-eeeiot}"
+      POSTGRES_USER: "${POSTGRES_USER:-eeeiot}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-eeeiot}"
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  mosquitto_data:
+  postgres_data:
